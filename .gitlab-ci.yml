@@ -33,3 +33,39 @@ build:
     name: "$GEM_NAME"    
     paths:
       - $GEM_NAME
+
+attest:
+  extends: .install-cosign
+  stage: attest
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  script:
+    - cosign attest-blob --yes --predicate $GEM_NAME-metadata.json --output-attestation $GEM_NAME.att --output-certificate $GEM_NAME.att.crt --output-signature $GEM_NAME.att.sig --oidc-issuer $CI_SERVER_URL --identity-token $SIGSTORE_ID_TOKEN $GEM_NAME 
+  artifacts:
+    paths:
+      - $GEM_NAME.att
+      - $GEM_NAME.att.crt
+      - $GEM_NAME.att.sig
+
+sign:
+  extends: .install-cosign
+  stage: sign
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  script:
+    - cosign sign-blob --yes --output-certificate $GEM_NAME.crt --output-signature $GEM_NAME.sig --oidc-issuer $CI_SERVER_URL --identity-token $SIGSTORE_ID_TOKEN $GEM_NAME
+  artifacts:
+    paths:
+      - $GEM_NAME.crt
+      - $GEM_NAME.sig
+
+bundle:
+  extends: .install-cosign
+  stage: release
+  script:
+    - cosign bundle create --artifact $GEM_NAME --attestation $GEM_NAME.att --certificate $GEM_NAME.crt --signature $GEM_NAME.sig > $GEM_NAME.sigstore.json
+  artifacts:
+    paths:
+      - $GEM_NAME.sigstore.json
